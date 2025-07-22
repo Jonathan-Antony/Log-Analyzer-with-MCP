@@ -8,6 +8,7 @@ import argparse
 import json
 import sys
 import os
+from urllib.parse import quote, unquote
 
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
@@ -48,6 +49,9 @@ group_details_parser = subparsers.add_parser(
 )
 group_details_parser.add_argument("log_group_name", help="The name of the log group")
 group_details_parser.add_argument(
+    "--use-tool", action="store_true", help="Use the tool interface instead of resource"
+)
+group_details_parser.add_argument(
     "--profile", help="AWS profile name to use for credentials"
 )
 group_details_parser.add_argument(
@@ -59,6 +63,15 @@ list_streams_parser = subparsers.add_parser(
     "list-streams", help="List log streams for a specific log group"
 )
 list_streams_parser.add_argument("log_group_name", help="The name of the log group")
+list_streams_parser.add_argument(
+    "--limit",
+    type=int,
+    default=20,
+    help="Maximum number of log streams to return (default: 20)",
+)
+list_streams_parser.add_argument(
+    "--use-tool", action="store_true", help="Use the tool interface instead of resource"
+)
 list_streams_parser.add_argument(
     "--profile", help="AWS profile name to use for credentials"
 )
@@ -73,6 +86,15 @@ get_events_parser = subparsers.add_parser(
 get_events_parser.add_argument("log_group_name", help="The name of the log group")
 get_events_parser.add_argument("log_stream_name", help="The name of the log stream")
 get_events_parser.add_argument(
+    "--limit",
+    type=int,
+    default=100,
+    help="Maximum number of log events to return (default: 100)",
+)
+get_events_parser.add_argument(
+    "--use-tool", action="store_true", help="Use the tool interface instead of resource"
+)
+get_events_parser.add_argument(
     "--profile", help="AWS profile name to use for credentials"
 )
 get_events_parser.add_argument("--region", help="AWS region name to use for API calls")
@@ -85,21 +107,27 @@ sample_parser.add_argument("log_group_name", help="The name of the log group")
 sample_parser.add_argument(
     "--limit", type=int, default=10, help="Number of logs to sample (default: 10)"
 )
+sample_parser.add_argument(
+    "--use-tool", action="store_true", help="Use the tool interface instead of resource"
+)
 sample_parser.add_argument("--profile", help="AWS profile name to use for credentials")
 sample_parser.add_argument("--region", help="AWS region name to use for API calls")
 
 # Get recent errors command
-errors_parser = subparsers.add_parser(
+recent_errors_parser = subparsers.add_parser(
     "recent-errors", help="Get recent error logs from a log group"
 )
-errors_parser.add_argument(
+recent_errors_parser.add_argument(
     "log_group_name", help="The name of the log group to analyze"
 )
-errors_parser.add_argument(
+recent_errors_parser.add_argument(
     "--hours", type=int, default=24, help="Number of hours to look back (default: 24)"
 )
-errors_parser.add_argument("--profile", help="AWS profile name to use for credentials")
-errors_parser.add_argument("--region", help="AWS region name to use for API calls")
+recent_errors_parser.add_argument(
+    "--use-tool", action="store_true", help="Use the tool interface instead of resource"
+)
+recent_errors_parser.add_argument("--profile", help="AWS profile name to use for credentials")
+recent_errors_parser.add_argument("--region", help="AWS region name to use for API calls")
 
 # Get log metrics command
 metrics_parser = subparsers.add_parser(
@@ -111,6 +139,9 @@ metrics_parser.add_argument(
 metrics_parser.add_argument(
     "--hours", type=int, default=24, help="Number of hours to look back (default: 24)"
 )
+metrics_parser.add_argument(
+    "--use-tool", action="store_true", help="Use the tool interface instead of resource"
+)
 metrics_parser.add_argument("--profile", help="AWS profile name to use for credentials")
 metrics_parser.add_argument("--region", help="AWS region name to use for API calls")
 
@@ -120,6 +151,9 @@ structure_parser = subparsers.add_parser(
 )
 structure_parser.add_argument(
     "log_group_name", help="The name of the log group to analyze"
+)
+structure_parser.add_argument(
+    "--use-tool", action="store_true", help="Use the tool interface instead of resource"
 )
 structure_parser.add_argument(
     "--profile", help="AWS profile name to use for credentials"
@@ -216,23 +250,23 @@ summarize_parser.add_argument(
 summarize_parser.add_argument("--region", help="AWS region name to use for API calls")
 
 # Find error patterns command
-errors_parser = subparsers.add_parser(
+find_errors_parser = subparsers.add_parser(
     "find-errors", help="Find common error patterns in logs"
 )
-errors_parser.add_argument(
+find_errors_parser.add_argument(
     "log_group_name", help="The name of the log group to analyze"
 )
-errors_parser.add_argument(
+find_errors_parser.add_argument(
     "--hours", type=int, default=24, help="Number of hours to look back (default: 24)"
 )
-errors_parser.add_argument(
+find_errors_parser.add_argument(
     "--start-time", type=str, help="Start time (ISO8601, e.g. 2024-06-01T00:00:00Z)"
 )
-errors_parser.add_argument(
+find_errors_parser.add_argument(
     "--end-time", type=str, help="End time (ISO8601, e.g. 2024-06-01T23:59:59Z)"
 )
-errors_parser.add_argument("--profile", help="AWS profile name to use for credentials")
-errors_parser.add_argument("--region", help="AWS region name to use for API calls")
+find_errors_parser.add_argument("--profile", help="AWS profile name to use for credentials")
+find_errors_parser.add_argument("--region", help="AWS region name to use for API calls")
 
 # Correlate logs command
 correlate_parser = subparsers.add_parser(
@@ -264,6 +298,16 @@ def add_aws_config_args(tool_args, args):
     if args.region:
         tool_args["region"] = args.region
     return tool_args
+
+
+def encode_log_group_name(log_group_name):
+    """URL encode log group name to handle special characters like forward slashes."""
+    return quote(log_group_name, safe='')
+
+
+def encode_log_stream_name(log_stream_name):
+    """URL encode log stream name to handle special characters like forward slashes."""
+    return quote(log_stream_name, safe='')
 
 
 async def main():
@@ -318,7 +362,8 @@ async def main():
                         # Build query string for parameters if provided
                         if args.prefix:
                             # If prefix is provided, use the filtered endpoint
-                            resource_uri = f"logs://groups/filter/{args.prefix}"
+                            encoded_prefix = encode_log_group_name(args.prefix)
+                            resource_uri = f"logs://groups/filter/{encoded_prefix}"
                         else:
                             resource_uri = "logs://groups"
 
@@ -326,41 +371,139 @@ async def main():
                         print_json_response(content)
 
                 elif args.command == "group-details":
-                    resource_uri = f"logs://groups/{args.log_group_name}"
-                    content, _ = await session.read_resource(resource_uri)
-                    print_json_response(content)
+                    if args.use_tool:
+                        # Use the tool interface
+                        tool_args = {
+                            "log_group_name": args.log_group_name,
+                        }
+                        tool_args = add_aws_config_args(tool_args, args)
+                        result = await session.call_tool(
+                            "get_log_group_details_tool", arguments=tool_args
+                        )
+                        print_json_response(result)
+                    else:
+                        # Use the resource interface
+                        encoded_log_group_name = encode_log_group_name(args.log_group_name)
+                        resource_uri = f"logs://groups/{encoded_log_group_name}"
+                        content, _ = await session.read_resource(resource_uri)
+                        print_json_response(content)
 
                 elif args.command == "list-streams":
-                    resource_uri = f"logs://groups/{args.log_group_name}/streams"
-                    content, _ = await session.read_resource(resource_uri)
-                    print_json_response(content)
+                    if args.use_tool:
+                        # Use the tool interface
+                        tool_args = {
+                            "log_group_name": args.log_group_name,
+                            "limit": args.limit,
+                        }
+                        tool_args = add_aws_config_args(tool_args, args)
+                        result = await session.call_tool(
+                            "list_log_streams", arguments=tool_args
+                        )
+                        print_json_response(result)
+                    else:
+                        # Use the resource interface
+                        encoded_log_group_name = encode_log_group_name(args.log_group_name)
+                        resource_uri = f"logs://groups/{encoded_log_group_name}/streams"
+                        content, _ = await session.read_resource(resource_uri)
+                        print_json_response(content)
 
                 elif args.command == "get-events":
-                    resource_uri = f"logs://groups/{args.log_group_name}/streams/{args.log_stream_name}"
-                    content, _ = await session.read_resource(resource_uri)
-                    print_json_response(content)
+                    if args.use_tool:
+                        # Use the tool interface
+                        tool_args = {
+                            "log_group_name": args.log_group_name,
+                            "log_stream_name": args.log_stream_name,
+                            "limit": args.limit,
+                        }
+                        tool_args = add_aws_config_args(tool_args, args)
+                        result = await session.call_tool(
+                            "get_log_events_tool", arguments=tool_args
+                        )
+                        print_json_response(result)
+                    else:
+                        # Use the resource interface
+                        encoded_log_group_name = encode_log_group_name(args.log_group_name)
+                        encoded_log_stream_name = encode_log_stream_name(args.log_stream_name)
+                        resource_uri = f"logs://groups/{encoded_log_group_name}/streams/{encoded_log_stream_name}"
+                        content, _ = await session.read_resource(resource_uri)
+                        print_json_response(content)
 
                 elif args.command == "sample":
-                    resource_uri = (
-                        f"logs://groups/{args.log_group_name}/sample?limit={args.limit}"
-                    )
-                    content, _ = await session.read_resource(resource_uri)
-                    print_json_response(content)
+                    if args.use_tool:
+                        # Use the tool interface
+                        tool_args = {
+                            "log_group_name": args.log_group_name,
+                            "limit": args.limit,
+                        }
+                        tool_args = add_aws_config_args(tool_args, args)
+                        result = await session.call_tool(
+                            "get_log_sample_tool", arguments=tool_args
+                        )
+                        print_json_response(result)
+                    else:
+                        # Use the resource interface
+                        encoded_log_group_name = encode_log_group_name(args.log_group_name)
+                        resource_uri = (
+                            f"logs://groups/{encoded_log_group_name}/sample?limit={args.limit}"
+                        )
+                        content, _ = await session.read_resource(resource_uri)
+                        print_json_response(content)
 
                 elif args.command == "recent-errors":
-                    resource_uri = f"logs://groups/{args.log_group_name}/recent-errors?hours={args.hours}"
-                    content, _ = await session.read_resource(resource_uri)
-                    print_json_response(content)
+                    if args.use_tool:
+                        # Use the tool interface
+                        tool_args = {
+                            "log_group_name": args.log_group_name,
+                            "hours": args.hours,
+                        }
+                        tool_args = add_aws_config_args(tool_args, args)
+                        result = await session.call_tool(
+                            "get_recent_errors_tool", arguments=tool_args
+                        )
+                        print_json_response(result)
+                    else:
+                        # Use the resource interface
+                        encoded_log_group_name = encode_log_group_name(args.log_group_name)
+                        resource_uri = f"logs://groups/{encoded_log_group_name}/recent-errors?hours={args.hours}"
+                        content, _ = await session.read_resource(resource_uri)
+                        print_json_response(content)
 
                 elif args.command == "metrics":
-                    resource_uri = f"logs://groups/{args.log_group_name}/metrics?hours={args.hours}"
-                    content, _ = await session.read_resource(resource_uri)
-                    print_json_response(content)
+                    if args.use_tool:
+                        # Use the tool interface
+                        tool_args = {
+                            "log_group_name": args.log_group_name,
+                            "hours": args.hours,
+                        }
+                        tool_args = add_aws_config_args(tool_args, args)
+                        result = await session.call_tool(
+                            "get_log_metrics_tool", arguments=tool_args
+                        )
+                        print_json_response(result)
+                    else:
+                        # Use the resource interface
+                        encoded_log_group_name = encode_log_group_name(args.log_group_name)
+                        resource_uri = f"logs://groups/{encoded_log_group_name}/metrics?hours={args.hours}"
+                        content, _ = await session.read_resource(resource_uri)
+                        print_json_response(content)
 
                 elif args.command == "structure":
-                    resource_uri = f"logs://groups/{args.log_group_name}/structure"
-                    content, _ = await session.read_resource(resource_uri)
-                    print_json_response(content)
+                    if args.use_tool:
+                        # Use the tool interface
+                        tool_args = {
+                            "log_group_name": args.log_group_name,
+                        }
+                        tool_args = add_aws_config_args(tool_args, args)
+                        result = await session.call_tool(
+                            "analyze_log_structure_tool", arguments=tool_args
+                        )
+                        print_json_response(result)
+                    else:
+                        # Use the resource interface
+                        encoded_log_group_name = encode_log_group_name(args.log_group_name)
+                        resource_uri = f"logs://groups/{encoded_log_group_name}/structure"
+                        content, _ = await session.read_resource(resource_uri)
+                        print_json_response(content)
 
                 elif args.command == "get-prompt":
                     # Get the analyze logs prompt from the server

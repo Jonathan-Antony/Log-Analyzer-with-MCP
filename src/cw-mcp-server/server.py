@@ -300,6 +300,172 @@ async def list_log_groups(
 
 
 @mcp.tool()
+@with_aws_config(CloudWatchLogsResource, method_name="get_log_group_details")
+async def get_log_group_details_tool(
+    log_group_name: str,
+    profile: str = None,
+    region: str = None,
+) -> str:
+    """
+    Get detailed information about a specific log group.
+
+    Args:
+        log_group_name: The name of the log group
+        profile: Optional AWS profile name to use for credentials
+        region: Optional AWS region name to use for API calls
+
+    Returns:
+        JSON string with log group details
+    """
+    # Function body is handled by the decorator
+    pass
+
+
+@mcp.tool()
+@with_aws_config(CloudWatchLogsResource, method_name="get_log_streams")
+async def list_log_streams(
+    log_group_name: str,
+    limit: int = 20,
+    profile: str = None,
+    region: str = None,
+) -> str:
+    """
+    List log streams for a specific log group.
+
+    Args:
+        log_group_name: The name of the log group
+        limit: Maximum number of log streams to return (default: 20)
+        profile: Optional AWS profile name to use for credentials
+        region: Optional AWS region name to use for API calls
+
+    Returns:
+        JSON string with log streams information
+    """
+    # Function body is handled by the decorator
+    pass
+
+
+@mcp.tool()
+@with_aws_config(CloudWatchLogsResource, method_name="get_log_events")
+async def get_log_events_tool(
+    log_group_name: str,
+    log_stream_name: str,
+    limit: int = 100,
+    profile: str = None,
+    region: str = None,
+) -> str:
+    """
+    Get log events from a specific log stream.
+
+    Args:
+        log_group_name: The name of the log group
+        log_stream_name: The name of the log stream
+        limit: Maximum number of log events to return (default: 100)
+        profile: Optional AWS profile name to use for credentials
+        region: Optional AWS region name to use for API calls
+
+    Returns:
+        JSON string with log events
+    """
+    # Function body is handled by the decorator
+    pass
+
+
+@mcp.tool()
+@with_aws_config(CloudWatchLogsResource, method_name="get_log_sample")
+async def get_log_sample_tool(
+    log_group_name: str,
+    limit: int = 10,
+    profile: str = None,
+    region: str = None,
+) -> str:
+    """
+    Get a sample of recent logs from a log group.
+
+    Args:
+        log_group_name: The name of the log group
+        limit: Number of logs to sample (default: 10)
+        profile: Optional AWS profile name to use for credentials
+        region: Optional AWS region name to use for API calls
+
+    Returns:
+        JSON string with log sample
+    """
+    # Function body is handled by the decorator
+    pass
+
+
+@mcp.tool()
+@with_aws_config(CloudWatchLogsResource, method_name="get_recent_errors")
+async def get_recent_errors_tool(
+    log_group_name: str,
+    hours: int = 24,
+    profile: str = None,
+    region: str = None,
+) -> str:
+    """
+    Get recent error logs from a log group.
+
+    Args:
+        log_group_name: The name of the log group
+        hours: Number of hours to look back (default: 24)
+        profile: Optional AWS profile name to use for credentials
+        region: Optional AWS region name to use for API calls
+
+    Returns:
+        JSON string with recent errors
+    """
+    # Function body is handled by the decorator
+    pass
+
+
+@mcp.tool()
+@with_aws_config(CloudWatchLogsResource, method_name="get_log_metrics")
+async def get_log_metrics_tool(
+    log_group_name: str,
+    hours: int = 24,
+    profile: str = None,
+    region: str = None,
+) -> str:
+    """
+    Get log volume metrics for a log group.
+
+    Args:
+        log_group_name: The name of the log group
+        hours: Number of hours to look back (default: 24)
+        profile: Optional AWS profile name to use for credentials
+        region: Optional AWS region name to use for API calls
+
+    Returns:
+        JSON string with log metrics
+    """
+    # Function body is handled by the decorator
+    pass
+
+
+@mcp.tool()
+@with_aws_config(CloudWatchLogsResource, method_name="analyze_log_structure")
+async def analyze_log_structure_tool(
+    log_group_name: str,
+    profile: str = None,
+    region: str = None,
+) -> str:
+    """
+    Analyze and provide information about the structure of logs.
+
+    Args:
+        log_group_name: The name of the log group
+        profile: Optional AWS profile name to use for credentials
+        region: Optional AWS region name to use for API calls
+
+    Returns:
+        JSON string with log structure analysis
+    """
+    # Function body is handled by the decorator
+    pass
+
+
+@mcp.tool()
 @with_aws_config(CloudWatchLogsSearchTools)
 async def search_logs(
     log_group_name: str,
